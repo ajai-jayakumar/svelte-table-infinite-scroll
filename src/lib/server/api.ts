@@ -7,33 +7,41 @@ interface Send {
 	method: 'GET' | 'POST' | 'PUT' | 'DELETE';
 	path: string;
 	data?: any;
-	token?: string;
+	accessToken?: string;
 }
 
-export async function send({ method, path, data, token }: Send) {
+export async function send({ method, path, data, accessToken }: Send) {
 	const headers: Record<string, string> = {};
+
+	// Pass API key for all request
+	headers['x-api-key'] = API_KEY;
 
 	if (data) {
 		headers['Content-Type'] = 'application/json';
 	}
 
-	if (token) {
-		headers['Authorization'] = `Token ${token}`;
-		headers['x-api-key'] = API_KEY;
+	if (accessToken) {
+		headers['Authorization'] = `Bearer ${accessToken}`;
 	}
 
-	const opts: RequestInit = {
+	const options: RequestInit = {
 		method,
 		headers,
 		...(data ? { body: JSON.stringify(data) } : {})
 	};
 
-	const res = await fetch(`${API_PATH}/${path}`, opts);
+	const res = await fetch(`${API_PATH}/${path}`, options);
+
+	if (!res.ok) {
+		const errorBody = await res.json().catch(() => null);
+
+		const errorMessage = errorBody?.message || `Error: ${res.statusText}`;
+
+		throw error(res.status, errorMessage);
+	}
 
 	if (res.ok || res.status === 422) {
 		const text = await res.text();
 		return text ? JSON.parse(text) : {};
 	}
-
-	throw error(res.status);
 }
